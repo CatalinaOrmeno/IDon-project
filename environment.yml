@@ -1,0 +1,10 @@
+name: ENV311
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - face_recognition
+  - matplotlib
+  - dlib
+  - opencv
+prefix: C:\Users\Catalina\.conda\envs\ENV311
