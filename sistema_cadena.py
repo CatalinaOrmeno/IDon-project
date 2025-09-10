@@ -32,23 +32,65 @@ class ModuloPipeline:
 # Módulo 1: Captura de cámara
 # ------------------------------
 class CapturaCamara(ModuloPipeline):
+    def __init__(self, siguiente_modulo=None):
+        super().__init__(siguiente_modulo)
+        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+    def ejecutar(self, datos=None):
+        ret, frame = self.cap.read()
+        if not ret:
+            return None
+        return cv2.flip(frame, 1)
+
+    def liberar(self):
+        self.cap.release()
+
+# ------------------------------
+# Módulo 2: Detección de rostros
+# ------------------------------
+class DetectarRostros(ModuloPipeline):
+    def ejecutar(self, frame):
+        face_locations = fr.face_locations(frame)
+        return (frame, face_locations)
+
+# ------------------------------
+# Módulo 3: Dibujar rectángulos
+# ------------------------------
+class DibujarRectangulos(ModuloPipeline):
     def ejecutar(self, datos):
-        cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+        frame, face_locations = datos
+        for (top, right, bottom, left) in face_locations:
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        return frame
 
-        while True:
-            ret,frame = cap.read()
-            if ret == False: break
-            frame = cv2.flip(frame,1)
+# ------------------------------
+# Módulo 4: Mostrar en ventana
+# ------------------------------
+class MostrarVentana(ModuloPipeline):
+    def ejecutar(self, frame):
+        cv2.imshow("Camara", frame)
+        return frame
 
-            face_locations = fr.face_locations(frame)
-            if face_locations != []:
-                for face in face_locations:
-                    cv2.rectangle(frame,(face[3],face[0]),(face[1],face[2]),(0,255,0),2)
+# ------------------------------
+# Orquestador principal
+# ------------------------------
+if __name__ == "__main__":
+    # Armamos la cadena
+    pipeline = CapturaCamara(
+        DetectarRostros(
+            DibujarRectangulos(
+                MostrarVentana()
+            )
+        )
+    )
 
-            cv2.imshow("Frame",frame)
-            k = cv2.waitKey(1)
-            if k == 27 & 0xFF:
-                break
+    captura = pipeline  # alias para usar liberar() luego
 
-        cap.release()
-        cv2.destroyAllWindows()
+    while True:
+        frame = pipeline.procesar(None)
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    captura.liberar()
+    cv2.destroyAllWindows()

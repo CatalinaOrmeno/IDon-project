@@ -11,6 +11,11 @@ while True:
     face_locations = face_recognition.face_locations(frame)
     if face_locations != []:
         for face in face_locations:
+            '''
+            face_frame_encodings = face_recognition.face_encodings(frame,known_face_locations=[face])[0]
+            result = face_recognition.compare_faces([face_frame_encodings],face_frame_encodings)
+            print("Resultado:",result)
+            '''
             cv2.rectangle(frame,(face[3],face[0]),(face[1],face[2]),(0,255,0),2)
 
     cv2.imshow("",frame)
