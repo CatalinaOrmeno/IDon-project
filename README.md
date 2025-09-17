@@ -2,34 +2,7 @@
 ---
 # 🐍 Tutorial: Cómo usar el entorno virtual del proyecto
 
-## 1. Crear y exportar el entorno (solo la primera vez)
-
-1. Activa tu entorno actual:
-   ```bash
-   conda activate ENV311
-   ```
-
-2. Exporta todas las dependencias a un archivo:
-    ```bash
-    conda env export > environment.yml
-    ```
-
-Esto generará un archivo `environment.yml` en tu proyecto con todas las librerías y versiones exactas.
-
->📌 Consejo: si no quieres incluir rutas locales (como `prefix:`), abre `environment.yml` y elimina la última línea que empiece con `prefix:`.
-
-## 2. Subir el archivo a GitHub
-
-* Asegúrate de hacer commit y push del environment.yml junto con tu código.
-* Ejemplo:
-
-```bash
-git add environment.yml
-git commit -m "Agrego configuración del entorno"
-git push origin feature/Cámara
-```
-
-## 3. Usar el entorno en otra máquina (tú o cualquier colaborador)
+## 1. Usar el entorno en otra máquina (tú o cualquier colaborador)
 
 1. Clona el repositorio:
 ```bash
@@ -37,29 +10,42 @@ git clone https://github.com/TU_USUARIO/IDon-project.git
 cd IDon-project
 ```
 
-2. Crea el entorno con el archivo `environment.yml`:
-```bash
-conda env create -f environment.yml -n ENV311
+2. Descarga Miniconda para Python 3.11 desde el instalador que esta en la carpeta `dependencies`.
+   - Recuerda habilitar la opción de añadir al Path como variable de entorno.
+   - Recuerda activar la opción de eliminar cache para evitar archivos basura.
+
+### Crear y activar el entorno:
+---
+#### Opción 1 (con environment.yml):
+3. Ubícate en la raíz de tu proyecto y ejecuta:
+```powershell
+conda env create -f dependencies/environment.yml
 ```
 
-👉 Esto instalará todas las librerías necesarias con sus versiones.
-
-3. Activa el entorno:
-```bash
-conda activate ENV311
+4. Activar el entorno (lo puedes hacer desde la consola o con la extensión de Python Environments):
+```powershell
+conda activate reconocimiento_facial
 ```
-## 4. Verificación
+---
+#### Opción 2 (Visual Studio Code):
+3. Crea el entorno desde la interfaz de Visual Studio Code con la extención de Python Environments y asignaselo al proyecto.
+
+4. Descarga librerias (Esto solo sirve como medida provicional) (Una vez que en la consola salga el env activado):
+```powershell
+# Instala librerías conda y pip de una sola vez
+conda install -c conda-forge numpy matplotlib opencv dlib -y ; `
+pip install face-recognition
+```
+---
+## 2. Verificación
 
 Para comprobar que todo funciona, ejecuta:
 ```bash
 python -c "import cv2, face_recognition, numpy; print('✅ Todo OK:', cv2.__version__, numpy.__version__)"
 ```
-## 5. Actualizar el entorno (si agregas librerías nuevas)
+## 3. Actualizar el entorno (si agregas o eliminas librerías)
 
-Si en algún momento instalas más librerías, actualiza el archivo `environment.yml`:
-```bash
-conda env export > environment.yml
-git add environment.yml
-git commit -m "Actualizo dependencias"
-git push
+Si en algún momento cambias las librerías, actualiza el archivo `environment.yml`:
+```powershell
+conda env update -f dependencies/environment.yml --prune
 ```
