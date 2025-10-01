@@ -69,8 +69,24 @@ class CargarEncodings(ModuloPipeline):
                 data = json.load(f)
             except Exception:
                 data = []
-        self.known_encodings = [list(map(float, p['encoding'])) for p in data if 'encoding' in p]
-        self.known_names = [p['nombre'] for p in data if 'nombre' in p]
+        self.known_encodings = []
+        self.known_names = []
+        for p in data:
+            if 'encodings' in p:
+                for tipo in ['frontal', 'perfil_derecho', 'perfil_izquierdo']:
+                    if tipo in p['encodings']:
+                        encs = p['encodings'][tipo]
+                        # Si es dict (nuevo formato)
+                        if isinstance(encs, dict):
+                            for estado in ['sin_lentes', 'con_lentes']:
+                                for encoding in encs.get(estado, []):
+                                    self.known_encodings.append(list(map(float, encoding)))
+                                    self.known_names.append(p.get('nombre', 'Desconocido'))
+                        # Si es lista (formato antiguo)
+                        elif isinstance(encs, list):
+                            for encoding in encs:
+                                self.known_encodings.append(list(map(float, encoding)))
+                                self.known_names.append(p.get('nombre', 'Desconocido'))
 
     def ejecutar(self, datos):
         # Pasa los encodings y nombres junto con el frame

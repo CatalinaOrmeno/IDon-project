@@ -10,9 +10,7 @@ JSON_PATH = "data/encodings.json"
 ANGULOS_REQUERIDOS = [
     "frontal",
     "perfil_derecho", 
-    "perfil_izquierdo", 
-    "arriba", 
-    "abajo"
+    "perfil_izquierdo"
 ]
 
 class SistemaIdentificacion:
@@ -131,9 +129,7 @@ class SistemaIdentificacion:
         rangos = {
             "frontal": ((-15, 15), (-10, 10)),  # (horizontal, vertical)
             "perfil_derecho": ((35, 55), (-15, 15)),  # Centrado en 45 grados
-            "perfil_izquierdo": ((-55, -35), (-15, 15)),  # Centrado en -45 grados
-            "arriba": ((-15, 15), (-30, -15)),
-            "abajo": ((-15, 15), (15, 30))
+            "perfil_izquierdo": ((-55, -35), (-15, 15)) # Centrado en -45 grados
         }
         
         if angulo_requerido not in rangos:
@@ -227,9 +223,7 @@ class SistemaIdentificacion:
         guias = {
             "frontal": "Mire directamente a la cámara",
             "perfil_derecho": "Gire la cabeza hacia su derecha (45°)",
-            "perfil_izquierdo": "Gire la cabeza hacia su izquierda (45°)",
-            "arriba": "Incline la cabeza hacia arriba",
-            "abajo": "Incline la cabeza hacia abajo"
+            "perfil_izquierdo": "Gire la cabeza hacia su izquierda (45°)"
         }
         
         # Dibujar texto de guía
@@ -241,7 +235,7 @@ class SistemaIdentificacion:
         return frame
 
     def registrar_persona(self):
-        """Registra una nueva persona con sus diferentes ángulos faciales."""
+        """Registra una nueva persona con sus diferentes ángulos faciales y estado de lentes."""
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             print("No se pudo acceder a la cámara.")
@@ -254,113 +248,128 @@ class SistemaIdentificacion:
             "encodings": {}
         }
 
-        for angulo in ANGULOS_REQUERIDOS:
-            encodings_capturados = []
-            print(f"\nCapturando ángulo: {angulo}")
-            print("Siga las instrucciones en pantalla")
-            print("Presione 'c' para capturar cuando el indicador esté en verde")
-            print("Presione 'q' para cancelar")
-            
-            while len(encodings_capturados) < 1:
-                ret, frame = self.cap.read()
-                if not ret:
-                    break
+        usa_lentes = input("¿La persona usa lentes habitualmente? (s/n): ").strip().lower() == 's'
+        persona["usa_lentes"] = usa_lentes
 
-                face_locations, face_encodings, face_landmarks, frame = self._detectar_rostro(frame)
-                frame = self._dibujar_guia_angulo(frame, angulo)
-                
-                for i, (face_location, landmarks) in enumerate(zip(face_locations, face_landmarks)):
-                    # Obtener los ángulos actuales para mostrarlos
-                    angulos_actuales = self._calcular_angulo_facial(landmarks)
-                    if angulos_actuales:
-                        angulo_h, angulo_v = angulos_actuales
-                        if angulo == "perfil_derecho":
-                            h_diff = abs(angulo_h - 45)  # Diferencia con el objetivo de 45°
-                            v_diff = abs(angulo_v)       # Diferencia con el objetivo de 0°
-                            debug_info = f"H:{angulo_h:.1f}° (meta:45°) V:{angulo_v:.1f}° (meta:0°)"
+        for angulo in ANGULOS_REQUERIDOS:
+            persona["encodings"][angulo] = {"sin_lentes": [], "con_lentes": []}
+            estados = ["sin_lentes"]
+            if usa_lentes:
+                estados.append("con_lentes")
+            for estado_lentes in estados:
+                print(f"\nCapturando ángulo: {angulo} - Estado: {estado_lentes.replace('_', ' ')}")
+                print("Siga las instrucciones en pantalla")
+                print("Presione 'c' para capturar cuando el indicador esté en verde")
+                print("Presione 'q' para cancelar")
+                print(f"Asegúrese de estar {'usando' if estado_lentes=='con_lentes' else 'sin'} lentes antes de capturar.")
+
+                encodings_capturados = []
+                while len(encodings_capturados) < 1:
+                    ret, frame = self.cap.read()
+                    if not ret:
+                        break
+
+                    face_locations, face_encodings, face_landmarks, frame = self._detectar_rostro(frame)
+                    frame = self._dibujar_guia_angulo(frame, angulo)
+
+                    for i, (face_location, landmarks) in enumerate(zip(face_locations, face_landmarks)):
+                        angulos_actuales = self._calcular_angulo_facial(landmarks)
+                        if angulos_actuales:
+                            angulo_h, angulo_v = angulos_actuales
+                            if angulo == "perfil_derecho":
+                                h_diff = abs(angulo_h - 45)
+                                v_diff = abs(angulo_v)
+                                debug_info = f"H:{angulo_h:.1f}° (meta:45°) V:{angulo_v:.1f}° (meta:0°)"
+                            else:
+                                debug_info = f"H:{angulo_h:.1f}° V:{angulo_v:.1f}°"
                         else:
-                            debug_info = f"H:{angulo_h:.1f}° V:{angulo_v:.1f}°"
-                    else:
-                        debug_info = "No se detectaron ángulos"
-                        
-                    if self._validar_angulo_facial(landmarks, angulo):
-                        color = (0, 255, 0)  # Verde si el ángulo es correcto
-                        label = f"¡Ángulo correcto! Presione 'c' | {debug_info}"
-                    else:
-                        color = (0, 0, 255)  # Rojo si el ángulo es incorrecto
-                        label = f"Ajuste el ángulo | {debug_info}"
-                    
-                    frame = self._dibujar_rostro(frame, face_location, label, color, landmarks, angulo)
-                
-                cv2.imshow('Registro de Rostro', frame)
-                key = cv2.waitKey(1) & 0xFF
-                
-                if key == ord('q'):
-                    self.cap.release()
-                    cv2.destroyAllWindows()
-                    return False
-                
-                if key == ord('c') and face_encodings and face_landmarks:
-                    if self._validar_angulo_facial(face_landmarks[0], angulo):
-                        encodings_capturados.append(face_encodings[0].tolist())
-                        print(f"Ángulo {angulo} capturado exitosamente!")
-                    else:
-                        print("Ángulo facial no válido, intente nuevamente")
-            
-            persona["encodings"][angulo] = encodings_capturados
+                            debug_info = "No se detectaron ángulos"
+
+                        if self._validar_angulo_facial(landmarks, angulo):
+                            color = (0, 255, 0)
+                            label = f"¡Ángulo correcto! Presione 'c' | {debug_info}"
+                        else:
+                            color = (0, 0, 255)
+                            label = f"Ajuste el ángulo | {debug_info}"
+
+                        frame = self._dibujar_rostro(frame, face_location, label, color, landmarks, angulo)
+
+                    cv2.imshow('Registro de Rostro', frame)
+                    key = cv2.waitKey(1) & 0xFF
+
+                    if key == ord('q'):
+                        self.cap.release()
+                        cv2.destroyAllWindows()
+                        return False
+
+                    if key == ord('c') and face_encodings and face_landmarks:
+                        if self._validar_angulo_facial(face_landmarks[0], angulo):
+                            encodings_capturados.append(face_encodings[0].tolist())
+                            print(f"Ángulo {angulo} ({estado_lentes}) capturado exitosamente!")
+                        else:
+                            print("Ángulo facial no válido, intente nuevamente")
+
+                persona["encodings"][angulo][estado_lentes] = encodings_capturados
 
         self.known_data.append(persona)
         self._guardar_datos()
         print("\n¡Registro completado exitosamente!")
-        
         self.cap.release()
         cv2.destroyAllWindows()
         return True
 
     def identificar_persona(self):
-        """Identifica personas en tiempo real usando todos los ángulos registrados."""
+        """Identifica personas en tiempo real usando todos los ángulos registrados y el estado de lentes."""
+        estado_lentes = input("¿Las personas a identificar están usando lentes? (s/n): ").strip().lower()
+        estado_lentes = "con_lentes" if estado_lentes == "s" else "sin_lentes"
+
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             print("No se pudo acceder a la cámara.")
             return
 
         print("Presiona 'q' para salir")
-        
+
         while True:
             ret, frame = self.cap.read()
             if not ret:
                 break
 
             face_locations, face_encodings, face_landmarks, frame = self._detectar_rostro(frame)
-            
+
             for i, (face_location, face_encoding, landmarks) in enumerate(zip(face_locations, face_encodings, face_landmarks)):
                 nombre = "Desconocido"
                 mejor_coincidencia = 1.0  # Umbral de distancia
                 angulo_actual = None
-                
+
                 # Determinar el ángulo actual del rostro
                 for angulo in ANGULOS_REQUERIDOS:
                     if self._validar_angulo_facial(landmarks, angulo):
                         angulo_actual = angulo
                         break
-                
-                # Comparar con todos los encodings conocidos
+
+                # Comparar con todos los encodings conocidos, solo del estado de lentes correspondiente
                 for persona in self.known_data:
-                    for angulo, encodings in persona["encodings"].items():
+                    for angulo, encodings_dict in persona["encodings"].items():
+                        # Compatibilidad con registros antiguos (lista) y nuevos (dict)
+                        if isinstance(encodings_dict, dict):
+                            encodings = encodings_dict.get(estado_lentes, [])
+                        else:
+                            encodings = encodings_dict
                         for encoding in encodings:
                             distancia = face_recognition.face_distance([encoding], face_encoding)[0]
                             if distancia < mejor_coincidencia and distancia < 0.5:
                                 mejor_coincidencia = distancia
                                 nombre = f"{persona['nombre']}"
-                
+
                 color = (0, 255, 0) if nombre != "Desconocido" else (0, 0, 255)
-                label = f"{nombre} ({angulo_actual if angulo_actual else 'ángulo no detectado'})"
+                label = f"{nombre} ({angulo_actual if angulo_actual else 'ángulo no detectado'}, {estado_lentes.replace('_', ' ')})"
                 frame = self._dibujar_rostro(frame, face_location, label, color)
-            
+
             cv2.imshow('Reconocimiento en vivo', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        
+
         self.cap.release()
         cv2.destroyAllWindows()
 
